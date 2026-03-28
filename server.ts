@@ -20,7 +20,8 @@ app.get("/allocate", c => {
     const available = pool.filter(e => !active.has(e));
     if (available.length === 0) return c.json({ error: "pool exhausted" }, 503);
 
-    const address = available[Math.floor(Math.random() * available.length)];
+    const username = available[Math.floor(Math.random() * available.length)];
+    const address = `${username}@sahildash.dev`;
     active.add(address);
 
     const entry: Session = {
