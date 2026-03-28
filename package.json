@@ -1,18 +1,24 @@
 {
-  "name": "tempmail",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "@hono/node-server": "^1.19.11",
-    "hono": "^4.12.9",
-    "nodemon": "^3.1.14"
-  }
+    "name": "tempmail",
+    "version": "1.0.0",
+    "description": "",
+    "main": "server.js",
+    "scripts": {
+        "dev": "tsx watch server.ts",
+        "start": "tsx server.ts"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "@hono/node-server": "^1.19.11",
+        "hono": "^4.12.9",
+        "nodemon": "^3.1.14"
+    },
+    "devDependencies": {
+        "@types/node": "^25.5.0",
+        "tsx": "^4.21.0",
+        "typescript": "^6.0.2"
+    }
 }
