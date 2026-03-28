@@ -1,9 +1,13 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
+import { config } from "dotenv"
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 
 import type { Session, Email } from "./types";
+
+config({ quiet: true });
 
 const app = new Hono();
 const sessions: Map<string, Session> = new Map();
@@ -30,6 +34,8 @@ app.get("/allocate", c => {
     sessions.set(address, entry);
     inbox.set(address, []);
 
+    console.log(`Address added: ${address}`);
+
     return c.json(entry);
 });
 
@@ -42,7 +48,30 @@ app.get("/inbox/:address", c => {
     return c.json(inbox.get(address) ?? []);
 });
 
-app.post("/inbox/:address/add", c => { return c.text("todo") });
+app.post("/inbox/:address/add", async c => {
+    if (c.req.header("x-cloudflare-secret") !== process.env.CLOUDFLARE_SECRET) {
+        return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const address = c.req.param("address");
+    if (!sessions.has(address)) return c.json({ error: "not found" }, 404);
+
+    const { from, subject, body } = await c.req.json();
+
+    const email: Email = {
+        id: randomUUID(),
+        from,
+        subject,
+        body,
+        receivedAt: Date.now(),
+    };
+
+    inbox.get(address)!.push(email);
+    sessions.get(address)!.lastActivity = Date.now();
+
+    console.log(`Mail for ${address} from ${from}`);
+    return c.json({ ok: true });
+});
 
 serve({ fetch: app.fetch, port: 6002 }, info => {
     console.log(`Listening at http://localhost:${info.port}`);

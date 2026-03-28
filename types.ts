@@ -11,5 +11,5 @@ export type Email = {
     from: string,
     subject: string,
     body: string,
-    receivedAt: string
+    receivedAt: number
 }
