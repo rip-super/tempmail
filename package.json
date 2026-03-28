@@ -4,7 +4,7 @@
     "description": "",
     "main": "server.js",
     "scripts": {
-        "dev": "tsx watch server.ts",
+        "dev": "nodemon --exec tsx server.ts",
         "start": "tsx server.ts"
     },
     "keywords": [],
@@ -14,11 +14,11 @@
     "dependencies": {
         "@hono/node-server": "^1.19.11",
         "dotenv": "^17.3.1",
-        "hono": "^4.12.9",
-        "nodemon": "^3.1.14"
+        "hono": "^4.12.9"
     },
     "devDependencies": {
         "@types/node": "^25.5.0",
+        "nodemon": "^3.1.14",
         "tsx": "^4.21.0",
         "typescript": "^6.0.2"
     }
