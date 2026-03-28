@@ -2,27 +2,27 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 
 :root {
-    --page-bg: #0a1020;
-    --hero-bg: #10172a;
-    --hero-border: #60a5fa;
+    --page-bg: #09111d;
+    --hero-bg: #0f1828;
+    --hero-border: #34d399;
 
-    --card-bg: #131c31;
-    --card-bg-2: #17203a;
-    --head-bg: #0f182b;
-    --row-hover: #1a2640;
+    --card-bg: #121d30;
+    --card-bg-2: #132435;
+    --head-bg: #0e1828;
+    --row-hover: #18263b;
 
     --accent: #38bdf8;
     --accent-hover: #7dd3fc;
     --accent-dim: rgba(56, 189, 248, 0.12);
-    --accent-dim2: rgba(96, 165, 250, 0.14);
+    --accent-dim2: rgba(52, 211, 153, 0.14);
 
     --white: #f8fbff;
     --text-bright: #e8eefc;
-    --text-mid: #a9b7d0;
-    --text-dim: #7383a1;
+    --text-mid: #a7b8d1;
+    --text-dim: #72859f;
 
-    --line: #273654;
-    --line-bright: #3a4d72;
+    --line: #28405a;
+    --line-bright: #3a5877;
 
     --shadow: 0 1px 3px rgba(0, 0, 0, .35), 0 10px 30px rgba(0, 0, 0, .28);
 
@@ -31,10 +31,10 @@
     --surface-border: rgba(255, 255, 255, 0.08);
     --surface-border-strong: rgba(255, 255, 255, 0.16);
 
-    --accent-border-soft: rgba(56, 189, 248, 0.14);
+    --accent-border-soft: rgba(52, 211, 153, 0.16);
     --accent-border: rgba(56, 189, 248, 0.28);
     --accent-ink: #08273a;
-    --accent-success: #10b981;
+    --accent-success: #34d399;
 
     --danger: #fb7185;
     --danger-soft: rgba(251, 113, 133, 0.10);
@@ -156,6 +156,7 @@ button {
 .copy-btn svg {
     width: 18px;
     height: 18px;
+    transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
 .email-pill:hover .copy-btn {
@@ -213,7 +214,7 @@ button {
 .main-wrap {
     max-width: 940px;
     margin: 0 auto;
-    padding: 20px 20px 40px;
+    padding: 20px;
     display: grid;
     grid-template-columns: 1fr 282px;
     gap: 16px;
@@ -737,6 +738,114 @@ button {
     color: var(--text-mid);
     line-height: 1.75;
     white-space: pre-wrap;
+}
+
+.copy-feedback {
+    height: 18px;
+    margin-top: -4px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--accent-success);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-2px);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.copy-feedback.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.brand img {
+    width: 420px;
+    height: auto;
+    max-width: 100%;
+    display: block;
+}
+
+.hero {
+    padding: 28px 20px 24px;
+}
+
+.hero-tagline {
+    margin-bottom: 18px;
+    font-size: 0.74rem;
+}
+
+.email-pill-wrap {
+    margin-bottom: 10px;
+}
+
+.email-pill {
+    min-height: 56px;
+}
+
+.copy-btn {
+    width: 42px;
+    height: 42px;
+}
+
+.action-row {
+    gap: 7px;
+}
+
+.action-btn {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 0.8rem;
+}
+
+.copy-feedback {
+    height: 14px;
+    margin-top: -2px;
+    margin-bottom: 10px;
+    font-size: 0.72rem;
+}
+
+.main-wrap {
+    padding: 14px 20px 20px;
+    gap: 14px;
+}
+
+.inbox-head {
+    padding: 11px 18px;
+}
+
+.mail-row {
+    padding: 11px 18px;
+}
+
+.domain-card {
+    padding: 18px 18px;
+}
+
+.features-card {
+    padding: 16px 18px;
+}
+
+.feature-row {
+    padding: 8px 0;
+}
+
+.empty-state {
+    padding: 24px 16px;
+}
+
+.empty-icon-ring {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 12px;
+}
+
+.empty-state h3 {
+    font-size: 0.88rem;
+}
+
+.empty-state p {
+    font-size: 0.78rem;
 }
 
 @media (max-width: 660px) {

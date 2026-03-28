@@ -16,13 +16,15 @@ const openDate = document.getElementById("openDate");
 const openSubject = document.getElementById("openSubject");
 const openBody = document.getElementById("openBody");
 const avatarText = document.getElementById("avatarText");
+const copyFeedback = document.getElementById("copyFeedback");
 
 const addresses = [
-    "bocehah807@sahildash.dev",
-    "mivota214@sahildash.dev",
-    "telnix482@sahildash.dev",
-    "lunera901@sahildash.dev",
-    "kevoma777@sahildash.dev",
+    "realgeorgewashingtonusa@sahildash.dev",
+    "mypassiscrazy123@sahildash.dev",
+    "i_use_arch_btw@sahildash.dev",
+    "sixseven@sahildash.dev",
+    "sahildash.dev@sahildash.dev",
+    "tempmail2electricboogaloo@sahildash.dev",
 ];
 
 let emails = [
@@ -121,29 +123,86 @@ function deleteCurrentEmail() {
     renderInbox();
 }
 
-async function copyEmail() {
+async function copyEmail(e) {
+    e.preventDefault();
+
+    const value = emailText.textContent.trim();
+    if (!value) return;
+
+    let copied = false;
+
     try {
-        await navigator.clipboard.writeText(emailText.textContent.trim());
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+            copied = true;
+        } else {
+            const ta = document.createElement("textarea");
+            ta.value = value;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            ta.style.pointerEvents = "none";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+
+            try {
+                copied = document.execCommand("copy");
+            } catch (err) {
+                copied = false;
+            }
+
+            document.body.removeChild(ta);
+        }
+    } catch (err) {
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        ta.style.pointerEvents = "none";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+
+        try {
+            copied = document.execCommand("copy");
+        } catch (fallbackErr) {
+            copied = false;
+        }
+
+        document.body.removeChild(ta);
+    }
+
+    if (copied) {
         copyBtn.classList.add("copied");
+        copyFeedback.classList.add("show");
         copyIconWrap.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>`;
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <polyline points="21 5 12 14 8 10"
+            style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2;" />
+        <path d="M20.94,11A8.26,8.26,0,0,1,21,12a9,9,0,1,1-9-9,8.83,8.83,0,0,1,4,1"
+            style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2;" />
+        </svg>`;
+
         setTimeout(() => {
             copyBtn.classList.remove("copied");
+            copyFeedback.classList.remove("show");
             copyIconWrap.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>`;
-        }, 1200);
-    } catch (e) {
-        console.error("Copy failed", e);
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>`;
+        }, 1500);
+    } else {
+        console.error("Copy failed");
     }
 }
 
 copyBtn.addEventListener("click", copyEmail);
-refreshBtn.addEventListener("click", renderInbox);
+refreshBtn.addEventListener("click", () => {
+    window.location.reload();
+});
 
 changeBtn.addEventListener("click", () => {
     emailText.textContent = addresses[Math.floor(Math.random() * addresses.length)];
@@ -152,7 +211,6 @@ changeBtn.addEventListener("click", () => {
 });
 
 deleteBtn.addEventListener("click", () => {
-    emailText.textContent = "deleted@sahildash.dev";
     emails = [];
     closeEmail();
     renderInbox();
