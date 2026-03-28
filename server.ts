@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { config } from "dotenv"
 import { readFileSync } from "node:fs";
@@ -40,6 +41,21 @@ app.get("/allocate", c => {
     return c.json(entry);
 });
 
+app.delete("/:address", c => {
+    const address = c.req.param("address");
+    const session = sessions.get(address);
+
+    if (!session) return c.json({ error: "not found" }, 404);
+
+    sessions.delete(address);
+    inbox.delete(address);
+    active.delete(address);
+
+    console.log(`Deleted Email: ${address}`);
+
+    return c.json({ ok: true });
+});
+
 app.get("/inbox/:address", c => {
     const address = c.req.param("address");
     const session = sessions.get(address);
@@ -73,6 +89,8 @@ app.post("/inbox/:address/add", async c => {
     console.log(`Mail for ${address} from ${from}`);
     return c.json({ ok: true });
 });
+
+app.use("/*", serveStatic({ root: "./frontend" }))
 
 serve({ fetch: app.fetch, port: 6002 }, info => {
     console.log(`Listening at http://localhost:${info.port}`);
