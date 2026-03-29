@@ -30,6 +30,25 @@ let clearedAt = null;
 let deletedIds = new Set();
 let renderedIds = new Set();
 
+async function decryptEmail(email) {
+    const b64ToArr = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const jwk = JSON.parse(localStorage.getItem("tempmail_privkey"));
+    const privateKey = await crypto.subtle.importKey("jwk", jwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+
+    async function decryptField(payload) {
+        const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, b64ToArr(payload.encryptedKey));
+        const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
+        const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToArr(payload.iv) }, aesKey, b64ToArr(payload.ciphertext));
+        return new TextDecoder().decode(plain);
+    }
+
+    const [subject, body, senderName, senderEmail] = await Promise.all([
+        decryptField(email.subject), decryptField(email.body),
+        decryptField(email.senderName), decryptField(email.senderEmail),
+    ]);
+    return { ...email, subject, body, senderName, senderEmail };
+}
+
 await(async () => {
     renderEmptyInbox();
 
@@ -37,7 +56,10 @@ await(async () => {
     const storedCleared = localStorage.getItem("tempmail_cleared");
     if (storedCleared) clearedAt = parseInt(storedCleared);
 
-    if (stored) {
+    const storedAddress = localStorage.getItem("tempmail_address");
+    const storedKey = localStorage.getItem("tempmail_privkey");
+
+    if (storedAddress && storedKey) {
         const res = await fetch(`https://tempmail.sahildash.dev/check/${stored}`);
         const data = await res.json();
         if (data.exists) {
@@ -50,7 +72,22 @@ await(async () => {
         }
     }
 
-    const res = await fetch("https://tempmail.sahildash.dev/allocate");
+    localStorage.removeItem("tempmail_address");
+    localStorage.removeItem("tempmail_privkey");
+
+    const pubKey = await crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true, ["encrypt", "decrypt"]
+    );
+    const publicKey = await crypto.subtle.exportKey("jwk", pubKey.publicKey);
+    const privateKey = await crypto.subtle.exportKey("jwk", pubKey.privateKey);
+    localStorage.setItem("tempmail_privkey", JSON.stringify(privateKey));
+
+    const res = await fetch("https://tempmail.sahildash.dev/allocate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicKey }),
+    });
 
     if (res.status === 429) {
         overlay.classList.add("active");
@@ -75,7 +112,8 @@ function startPolling(address) {
     async function fetchInbox() {
         const res = await fetch(`https://tempmail.sahildash.dev/inbox/${address}`);
         if (!res.ok) return;
-        emails = await res.json();
+        const raw = await res.json();
+        emails = await Promise.all(raw.map(decryptEmail));
         renderInbox();
     }
 
@@ -108,11 +146,20 @@ function renderEmptyInbox() {
 }
 
 function renderInbox() {
-    const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt));
+    const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt)).reverse();
 
     if (!visible.length) {
-        renderedIds = new Set();
-        renderEmptyInbox();
+        const rows = inboxBody.querySelectorAll(".mail-row");
+        if (!rows.length) {
+            renderedIds = new Set();
+            renderEmptyInbox();
+            return;
+        }
+        rows.forEach(row => row.classList.add("is-leaving"));
+        setTimeout(() => {
+            renderedIds = new Set();
+            renderEmptyInbox();
+        }, 200);
         return;
     }
 
@@ -286,11 +333,25 @@ refreshBtn.addEventListener("click", () => {
 });
 
 changeBtn.addEventListener("click", async () => {
+    deleteBtn.click();
+
     const current = localStorage.getItem("tempmail_address");
 
     emailText.innerHTML = `<span class="shimmer"></span>`;
 
-    const res = await fetch("https://tempmail.sahildash.dev/allocate");
+    const pubKey = await crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true, ["encrypt", "decrypt"]
+    );
+    const publicKey = await crypto.subtle.exportKey("jwk", pubKey.publicKey);
+    const privateKey = await crypto.subtle.exportKey("jwk", pubKey.privateKey);
+    localStorage.setItem("tempmail_privkey", JSON.stringify(privateKey));
+
+    const res = await fetch("https://tempmail.sahildash.dev/allocate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicKey }),
+    });
 
     if (res.status === 429) {
         overlay.classList.add("active");

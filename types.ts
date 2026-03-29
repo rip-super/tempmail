@@ -3,14 +3,20 @@ export type Session = {
     ip: string | null,
     allocatedAt: number,
     lastActivity: number,
-    publicKey: string
+    publicKey: JsonWebKey,
+}
+
+export interface Payload {
+    encryptedKey: string,
+    iv: string,
+    ciphertext: string,
 }
 
 export type Email = {
-    id: string;
-    senderName: string;
-    senderEmail: string;
-    subject: string;
-    body: string;
-    receivedAt: number;
+    id: string,
+    senderName: Payload,
+    senderEmail: Payload,
+    subject: Payload,
+    body: Payload,
+    receivedAt: number,
 }

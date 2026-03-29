@@ -6,7 +6,7 @@ import { config } from "dotenv";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
-import type { Session, Email } from "./types";
+import type { Session, Email, Payload } from "./types";
 
 config({ quiet: true });
 
@@ -22,7 +22,26 @@ const available: Set<string> = new Set(pool);
 const rateLimit = 5;
 const rateLimitWindow = 30 * 60 * 1000;
 
-app.get("/allocate", c => {
+function arrToB64(buf: ArrayBuffer): string {
+    return Buffer.from(buf).toString("base64");
+}
+
+async function encryptField(value: string, pubKey: CryptoKey): Promise<Payload> {
+    const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, new TextEncoder().encode(value));
+    const rawAes = await crypto.subtle.exportKey("raw", aesKey);
+    const encryptedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, pubKey, rawAes);
+    
+    return { encryptedKey: arrToB64(encryptedKey), iv: arrToB64(iv.buffer), ciphertext: arrToB64(ciphertext) };
+}
+
+app.post("/allocate", async c => {
+    const body = await c.req.json().catch(() => null);
+    if (!body?.publicKey || body.publicKey.kty !== "RSA") {
+        return c.json({ error: "invalid_key" }, 400);
+    }
+
     const ip = getConnInfo(c).remote.address ?? "unknown";
     const now = Date.now();
     const record = allocations.get(ip);
@@ -47,7 +66,7 @@ app.get("/allocate", c => {
         ip,
         allocatedAt: now,
         lastActivity: now,
-        publicKey: "",
+        publicKey: body.publicKey,
     };
 
     sessions.set(address, entry);
@@ -99,12 +118,16 @@ app.post("/inbox/:address/add", async c => {
 
     const { senderName, senderEmail, subject, body } = await c.req.json();
 
+    const pubKey = await crypto.subtle.importKey(
+        "jwk", sessions.get(address)!.publicKey, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]
+    );
+
     const email: Email = {
         id: randomUUID(),
-        senderName,
-        senderEmail,
-        subject,
-        body,
+        senderName: await encryptField(senderName ?? "", pubKey),
+        senderEmail: await encryptField(senderEmail ?? "", pubKey),
+        subject: await encryptField(subject ?? "(no subject)", pubKey),
+        body: await encryptField(body ?? "", pubKey),
         receivedAt: Date.now(),
     };
 
