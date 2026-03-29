@@ -286,12 +286,37 @@ button {
     align-items: center;
     justify-content: center;
     margin-bottom: 16px;
+    position: relative;
+    animation: spin-reverse 16s linear infinite;
+}
+
+.empty-icon-ring::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    animation: spin 1.4s linear infinite;
 }
 
 .empty-icon-ring svg {
     width: 26px;
     height: 26px;
     color: var(--text-dim);
+    animation: spin 16s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes spin-reverse {
+    to {
+        transform: rotate(-360deg);
+    }
 }
 
 .empty-state h3 {
@@ -949,6 +974,68 @@ button {
 
 .popup-btn:hover {
     opacity: 0.85;
+}
+
+@keyframes mailRowIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes mailViewIn {
+    from {
+        opacity: 0;
+        transform: translateX(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes mailViewOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(12px);
+    }
+}
+
+@keyframes inboxIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.mail-row.is-new {
+    animation: mailRowIn 0.25s ease forwards;
+}
+
+#mailView.entering {
+    animation: mailViewIn 0.2s ease forwards;
+}
+
+#mailView.leaving {
+    animation: mailViewOut 0.2s ease forwards;
+}
+
+#inboxBody.returning {
+    animation: inboxIn 0.25s ease forwards;
 }
 
 @media (max-width: 660px) {

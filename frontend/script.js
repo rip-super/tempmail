@@ -27,6 +27,8 @@ let emails = [];
 let currentOpenId = null;
 let pollingInterval = null;
 let clearedAt = null;
+let deletedIds = new Set();
+let renderedIds = new Set();
 
 await(async () => {
     renderEmptyInbox();
@@ -88,6 +90,8 @@ function formatDate(ts) {
 }
 
 function renderEmptyInbox() {
+    if (inboxBody.querySelector(".empty-state")) return;
+
     inboxBody.innerHTML = `
     <div class="empty-state">
         <div class="empty-icon-ring">
@@ -102,29 +106,56 @@ function renderEmptyInbox() {
 }
 
 function renderInbox() {
-    const visible = clearedAt ? emails.filter(m => m.receivedAt > clearedAt) : emails;
+    const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt));
 
-    if (!visible.length) { renderEmptyInbox(); return; }
-    inboxBody.innerHTML = visible.map(m => `
-    <div class="mail-row" data-id="${m.id}">
+    if (!visible.length) {
+        renderedIds = new Set();
+        renderEmptyInbox();
+        return;
+    }
+
+    const empty = inboxBody.querySelector(".empty-state");
+    if (empty) empty.remove();
+
+    const visibleIds = new Set(visible.map(m => m.id));
+
+    inboxBody.querySelectorAll(".mail-row").forEach(row => {
+        if (!visibleIds.has(row.dataset.id)) row.remove();
+    });
+
+    visible.forEach((m, i) => {
+        if (renderedIds.has(m.id)) return;
+
+        const row = document.createElement("div");
+        row.className = "mail-row is-new";
+        row.dataset.id = m.id;
+        row.innerHTML = `
         <div class="sender-cell">
             <div class="unread-dot"></div>
             <div class="sender-info">
                 <div class="sender-name">${m.senderName}</div>
                 <div class="sender-email-small">${m.senderEmail}</div>
             </div>
-            </div>
-            <div class="subject-cell">${m.subject}</div>
-            <div class="arrow-cell">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 18 15 12 9 6"/>
-                </svg>
-            </div>
-    </div>`).join("");
+        </div>
+        <div class="subject-cell">${m.subject}</div>
+        <div class="arrow-cell">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+            </svg>
+        </div>`;
 
-    document.querySelectorAll(".mail-row").forEach(row => {
-        row.addEventListener("click", () => openEmail(row.dataset.id));
+        row.addEventListener("click", () => openEmail(m.id));
+        row.addEventListener("animationend", () => row.classList.remove("is-new"), { once: true });
+
+        const allRows = inboxBody.querySelectorAll(".mail-row");
+        if (i < allRows.length) {
+            inboxBody.insertBefore(row, allRows[i]);
+        } else {
+            inboxBody.appendChild(row);
+        }
     });
+
+    renderedIds = visibleIds;
 }
 
 function openEmail(id) {
@@ -142,17 +173,30 @@ function openEmail(id) {
     inboxHead.classList.add("hidden");
     inboxBody.classList.add("hidden");
     mailView.classList.remove("hidden");
+    mailView.classList.add("entering");
+    mailView.addEventListener("animationend", () => {
+        mailView.classList.remove("entering");
+    }, { once: true });
 }
 
 function closeEmail() {
     currentOpenId = null;
-    mailView.classList.add("hidden");
-    inboxBody.classList.remove("hidden");
-    inboxHead.classList.remove("hidden");
+    mailView.classList.add("leaving");
+    mailView.addEventListener("animationend", () => {
+        mailView.classList.remove("leaving");
+        mailView.classList.add("hidden");
+        inboxBody.classList.remove("hidden");
+        inboxBody.classList.add("returning");
+        inboxHead.classList.remove("hidden");
+        inboxBody.addEventListener("animationend", () => {
+            inboxBody.classList.remove("returning");
+        }, { once: true });
+    }, { once: true });
 }
 
 function deleteCurrentEmail() {
     if (currentOpenId === null) return;
+    deletedIds.add(currentOpenId);
     emails = emails.filter(m => m.id !== currentOpenId);
     closeEmail();
     renderInbox();
@@ -265,7 +309,9 @@ changeBtn.addEventListener("click", async () => {
     setTimeout(() => {
         emailText.innerHTML = data.address;
         clearedAt = null;
-        startPolling(data.address)
+        deletedIds = new Set();
+        renderedIds = new Set();
+        startPolling(data.address);
     }, delay);
 });
 
