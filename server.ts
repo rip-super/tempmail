@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE, SSEStreamingApi } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -14,6 +15,7 @@ const app = new Hono();
 const sessions: Map<string, Session> = new Map();
 const inbox: Map<string, Email[]> = new Map();
 const allocations: Map<string, { count: number; resetAt: number }> = new Map();
+const subscribers: Map<string, Set<SSEStreamingApi>> = new Map();
 
 const pool: string[] = readFileSync("./emails.txt", "utf-8").split("\n").map(s => s.trim()).filter(Boolean);
 const active: Set<string> = new Set();
@@ -32,7 +34,7 @@ async function encryptField(value: string, pubKey: CryptoKey): Promise<Payload> 
     const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, new TextEncoder().encode(value));
     const rawAes = await crypto.subtle.exportKey("raw", aesKey);
     const encryptedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, pubKey, rawAes);
-    
+
     return { encryptedKey: arrToB64(encryptedKey), iv: arrToB64(iv.buffer), ciphertext: arrToB64(ciphertext) };
 }
 
@@ -133,9 +135,31 @@ app.post("/inbox/:address/add", async c => {
 
     inbox.get(address)!.push(email);
     sessions.get(address)!.lastActivity = Date.now();
+    subscribers.get(address)?.forEach(s => {
+        s.writeSSE({ event: "email", data: JSON.stringify(email) })
+    });
 
     console.log(`Mail for ${address} from ${senderName} <${senderEmail}>`);
     return c.json({ ok: true });
+});
+
+app.get("/inbox/:address/stream", async c => {
+    const address = c.req.param("address");
+    if (!sessions.has(address)) return c.json({ error: "not found" }, 404);
+
+    return streamSSE(c, async stream => {
+        if (!subscribers.has(address)) subscribers.set(address, new Set());
+        subscribers.get(address)!.add(stream);
+
+        stream.onAbort(() => { subscribers.get(address)?.delete(stream); });
+
+        await stream.writeSSE({ event: "connected", data: "ok" });
+
+        while (!stream.closed) {
+            await stream.sleep(30000);
+            await stream.writeSSE({ event: "ping", data: "" });
+        }
+    });
 });
 
 app.use("/*", serveStatic({ root: "./frontend" }));

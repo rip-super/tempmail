@@ -25,8 +25,10 @@ document.getElementById("rateLimitOk").addEventListener("click", () => {
 
 let emails = [];
 let currentOpenId = null;
-let pollingInterval = null;
 let clearedAt = null;
+let activeStream = null;
+let retryTimeout = null;
+let retryDelay = 1000;
 let deletedIds = new Set();
 let renderedIds = new Set();
 
@@ -109,17 +111,34 @@ await(async () => {
 })();
 
 function startPolling(address) {
-    async function fetchInbox() {
-        const res = await fetch(`https://tempmail.sahildash.dev/inbox/${address}`);
-        if (!res.ok) return;
-        const raw = await res.json();
-        emails = await Promise.all(raw.map(decryptEmail));
-        renderInbox();
-    }
+    if (activeStream) activeStream.close();
+    if (retryTimeout) clearTimeout(retryTimeout);
 
-    if (pollingInterval) clearInterval(pollingInterval);
-    fetchInbox();
-    pollingInterval = setInterval(fetchInbox, 1000);
+    fetch(`https://tempmail.sahildash.dev/inbox/${address}`)
+        .then(r => r.json())
+        .then(async raw => {
+            emails = await Promise.all(raw.map(decryptEmail));
+            renderInbox();
+        });
+
+    const es = new EventSource(`https://tempmail.sahildash.dev/inbox/${address}/stream`);
+    activeStream = es;
+
+    es.addEventListener("connected", () => { retryDelay = 1000; });
+
+    es.addEventListener("email", async e => {
+        const raw = JSON.parse(e.data);
+        const decrypted = await decryptEmail(raw);
+        emails.push(decrypted);
+        renderInbox();
+    });
+
+    es.addEventListener("error", () => {
+        es.close();
+        activeStream = null;
+        retryTimeout = setTimeout(() => startPolling(address), retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30000);
+    });
 }
 
 function formatDate(ts) {
