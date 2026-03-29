@@ -20,7 +20,8 @@ export default {
             },
             body: JSON.stringify({
                 to: address,
-                from: message.from,
+                senderName: parsed.from?.name || parsed.from?.address || message.from,
+                senderEmail: parsed.from?.address || message.from,
                 subject: parsed.subject ?? "(no subject)",
                 body: parsed.text ?? parsed.html ?? "",
             })

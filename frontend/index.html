@@ -16,7 +16,9 @@
 
         <div class="email-pill-wrap">
             <button class="email-pill" id="copyBtn" aria-label="Copy email address">
-                <span class="email-pill-text" id="emailText">realgeorgewashingtonusa@sahildash.dev</span>
+                <span class="email-pill-text" id="emailText">
+                    <span class="shimmer"></span>
+                </span>
                 <div class="copy-btn" id="copyIconWrap" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2" />
@@ -178,7 +180,16 @@
     <div class="built-by">Built by <a href="https://sahildash.dev" target="_blank">Sahil Dash</a> · Leave a star on <a
             href="https://github.com/rip-super/tempmail" target="_blank">Github!</a></div>
 
-    <script src="script.js"></script>
+    <div class="popup-overlay" id="rateLimitOverlay">
+        <div class="popup">
+            <h3 class="popup-title">Max address changes reached!</h3>
+            <p class="popup-body">To protect this site against bots, you can only get 5 addresses every 30 minutes, and looks like you've hit 5. Feel
+                free to keep using your current address, but if you need a different one, just wait half an hour. Thanks!</p>
+            <button class="popup-btn" id="rateLimitOk">OK</button>
+        </div>
+    </div>
+
+    <script src="script.js" type="module"></script>
 </body>
 
 </html>

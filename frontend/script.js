@@ -17,78 +17,113 @@ const openSubject = document.getElementById("openSubject");
 const openBody = document.getElementById("openBody");
 const avatarText = document.getElementById("avatarText");
 const copyFeedback = document.getElementById("copyFeedback");
+const overlay = document.getElementById("rateLimitOverlay");
 
-const addresses = [
-    "realgeorgewashingtonusa@sahildash.dev",
-    "mypassiscrazy123@sahildash.dev",
-    "i_use_arch_btw@sahildash.dev",
-    "sixseven@sahildash.dev",
-    "sahildash.dev@sahildash.dev",
-    "tempmail2electricboogaloo@sahildash.dev",
-];
+document.getElementById("rateLimitOk").addEventListener("click", () => {
+    overlay.classList.remove("active");
+});
 
-let emails = [
-    {
-        id: 1,
-        senderName: "Sahil Dash",
-        senderEmail: "sahildash7704@gmail.com",
-        subject: "Test Email",
-        body: "mypassiscrazy123",
-        date: "28-03-2026 11:29:32",
-    },
-];
-
+let emails = [];
 let currentOpenId = null;
+let pollingInterval = null;
+let clearedAt = null;
 
-function getInitials(name) {
-    return name.split(" ").map(p => p[0] || "").join("").slice(0, 2).toUpperCase();
+await(async () => {
+    renderEmptyInbox();
+
+    const stored = localStorage.getItem("tempmail_address");
+
+    if (stored) {
+        const res = await fetch(`https://tempmail.sahildash.dev/check/${stored}`);
+        const data = await res.json();
+        if (data.exists) {
+            const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
+            setTimeout(() => {
+                emailText.innerHTML = stored;
+                startPolling(stored);
+            }, delay);
+            return;
+        }
+    }
+
+    const res = await fetch("https://tempmail.sahildash.dev/allocate");
+
+    if (res.status === 429) {
+        overlay.classList.add("active");
+        if (stored) {
+            const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
+            setTimeout(() => emailText.innerHTML = stored, delay);
+        }
+        return;
+    }
+
+    const data = await res.json();
+    localStorage.setItem("tempmail_address", data.address);
+
+    const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
+    setTimeout(() => {
+        emailText.innerHTML = data.address;
+        startPolling(data.address);
+    }, delay);
+})();
+
+function startPolling(address) {
+    async function fetchInbox() {
+        const res = await fetch(`https://tempmail.sahildash.dev/inbox/${address}`);
+        if (!res.ok) return;
+        emails = await res.json();
+        renderInbox();
+    }
+
+    if (pollingInterval) clearInterval(pollingInterval);
+    fetchInbox();
+    pollingInterval = setInterval(fetchInbox, 1000);
 }
 
-function formatDate(str) {
-    const [datePart, timePart] = str.split(" ");
-    const [day, month, year] = datePart.split("-").map(Number);
-    const [h, m, s] = timePart.split(":").map(Number);
-    const d = new Date(year, month - 1, day, h, m, s);
-    const dateLine = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-    const timeLine = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-    return `${dateLine}<br>at ${timeLine}`;
+function formatDate(ts) {
+    const d = new Date(ts);
+    const date = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+    return `${date}<br>at ${time}`;
 }
 
 function renderEmptyInbox() {
     inboxBody.innerHTML = `
     <div class="empty-state">
-      <div class="empty-icon-ring">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2z"/>
-          <polyline points="22,6 12,13 2,6"/>
-        </svg>
-      </div>
-      <h3>Inbox is empty</h3>
-      <p>Waiting for incoming mail…</p>
+        <div class="empty-icon-ring">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+            </svg>
+        </div>
+        <h3>Inbox is empty</h3>
+        <p>Waiting for incoming mail...</p>
     </div>`;
 }
 
 function renderInbox() {
-    if (!emails.length) { renderEmptyInbox(); return; }
-    inboxBody.innerHTML = emails.map(m => `
+    const visible = clearedAt ? emails.filter(m => m.receivedAt > clearedAt) : emails;
+
+    if (!visible.length) { renderEmptyInbox(); return; }
+    inboxBody.innerHTML = visible.map(m => `
     <div class="mail-row" data-id="${m.id}">
-      <div class="sender-cell">
-        <div class="unread-dot"></div>
-        <div class="sender-info">
-          <div class="sender-name">${m.senderName}</div>
-          <div class="sender-email-small">${m.senderEmail}</div>
-        </div>
-      </div>
-      <div class="subject-cell">${m.subject}</div>
-      <div class="arrow-cell">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </div>
+        <div class="sender-cell">
+            <div class="unread-dot"></div>
+            <div class="sender-info">
+                <div class="sender-name">${m.senderName}</div>
+                <div class="sender-email-small">${m.senderEmail}</div>
+            </div>
+            </div>
+            <div class="subject-cell">${m.subject}</div>
+            <div class="arrow-cell">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </div>
     </div>`).join("");
 
     document.querySelectorAll(".mail-row").forEach(row => {
-        row.addEventListener("click", () => openEmail(Number(row.dataset.id)));
+        row.addEventListener("click", () => openEmail(row.dataset.id));
     });
 }
 
@@ -101,8 +136,8 @@ function openEmail(id) {
     openSenderEmail.textContent = m.senderEmail;
     openSubject.textContent = m.subject;
     openBody.textContent = m.body;
-    avatarText.textContent = getInitials(m.senderName);
-    openDate.innerHTML = formatDate(m.date);
+    avatarText.textContent = m.senderName.split(" ").map(p => p[0] ?? "").join("").slice(0, 2).toUpperCase();
+    openDate.innerHTML = formatDate(m.receivedAt);
 
     inboxHead.classList.add("hidden");
     inboxBody.classList.add("hidden");
@@ -204,14 +239,38 @@ refreshBtn.addEventListener("click", () => {
     window.location.reload();
 });
 
-changeBtn.addEventListener("click", () => {
-    emailText.textContent = addresses[Math.floor(Math.random() * addresses.length)];
-    closeEmail();
-    renderInbox();
+changeBtn.addEventListener("click", async () => {
+    const current = localStorage.getItem("tempmail_address");
+
+    emailText.innerHTML = `<span class="shimmer"></span>`;
+
+    const res = await fetch("https://tempmail.sahildash.dev/allocate");
+
+    if (res.status === 429) {
+        overlay.classList.add("active");
+        await new Promise(resolve => {
+            document.getElementById("rateLimitOk").addEventListener("click", () => {
+                overlay.classList.remove("active");
+                setTimeout(resolve, 500);
+            }, { once: true });
+        });
+        emailText.innerHTML = current;
+        return;
+    }
+
+    const data = await res.json();
+    localStorage.setItem("tempmail_address", data.address);
+
+    const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
+    setTimeout(() => {
+        emailText.innerHTML = data.address;
+        clearedAt = null;
+        startPolling(data.address)
+    }, delay);
 });
 
 deleteBtn.addEventListener("click", () => {
-    emails = [];
+    clearedAt = Date.now();
     closeEmail();
     renderInbox();
 });
@@ -234,5 +293,3 @@ sourceBtn.addEventListener("click", () => {
     a.remove();
     URL.revokeObjectURL(url);
 });
-
-renderInbox();

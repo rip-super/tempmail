@@ -7,9 +7,10 @@ export type Session = {
 }
 
 export type Email = {
-    id: string,
-    from: string,
-    subject: string,
-    body: string,
-    receivedAt: number
+    id: string;
+    senderName: string;
+    senderEmail: string;
+    subject: string;
+    body: string;
+    receivedAt: number;
 }
