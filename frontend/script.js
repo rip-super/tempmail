@@ -34,6 +34,8 @@ await(async () => {
     renderEmptyInbox();
 
     const stored = localStorage.getItem("tempmail_address");
+    const storedCleared = localStorage.getItem("tempmail_cleared");
+    if (storedCleared) clearedAt = parseInt(storedCleared);
 
     if (stored) {
         const res = await fetch(`https://tempmail.sahildash.dev/check/${stored}`);
@@ -302,21 +304,30 @@ changeBtn.addEventListener("click", async () => {
         return;
     }
 
+    if (current) {
+        fetch(`https://tempmail.sahildash.dev/${current}`, { method: "DELETE" });
+    }
+
     const data = await res.json();
     localStorage.setItem("tempmail_address", data.address);
 
     const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
     setTimeout(() => {
         emailText.innerHTML = data.address;
+
+        localStorage.removeItem("tempmail_cleared");
+
         clearedAt = null;
         deletedIds = new Set();
         renderedIds = new Set();
+
         startPolling(data.address);
     }, delay);
 });
 
 deleteBtn.addEventListener("click", () => {
     clearedAt = Date.now();
+    localStorage.setItem("tempmail_cleared", clearedAt);
     closeEmail();
     renderInbox();
 });
