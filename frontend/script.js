@@ -19,6 +19,15 @@ const avatarText = document.getElementById("avatarText");
 const copyFeedback = document.getElementById("copyFeedback");
 const overlay = document.getElementById("rateLimitOverlay");
 
+const LEGENDARY_ADDRESSES = [
+    "realgeorgewashingtonusa",
+    "mypassiscrazy123",
+    "i_use_arch_btw",
+    "sixseven",
+    "sahildash.dev",
+    "tempmail2electricboogaloo"
+];
+
 document.getElementById("rateLimitOk").addEventListener("click", () => {
     overlay.classList.remove("active");
 });
@@ -32,23 +41,22 @@ let retryDelay = 1000;
 let deletedIds = new Set();
 let renderedIds = new Set();
 
-async function decryptEmail(email) {
-    const b64ToArr = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const jwk = JSON.parse(localStorage.getItem("tempmail_privkey"));
-    const privateKey = await crypto.subtle.importKey("jwk", jwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
-
-    async function decryptField(payload) {
-        const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, b64ToArr(payload.encryptedKey));
-        const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
-        const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToArr(payload.iv) }, aesKey, b64ToArr(payload.ciphertext));
-        return new TextDecoder().decode(plain);
-    }
-
-    const [subject, body, senderName, senderEmail] = await Promise.all([
-        decryptField(email.subject), decryptField(email.body),
-        decryptField(email.senderName), decryptField(email.senderEmail),
-    ]);
-    return { ...email, subject, body, senderName, senderEmail };
+function showLegendaryPopup() {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.className = "legendary-popup-overlay";
+        overlay.innerHTML = `
+            <div class="legendary-popup">
+                <p>congrats! you rolled a <span class="legendary-label">legendary</span> email address.<br>(0.01% chance!) good job!</p>
+                <button id="legendary-ok">yay</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#legendary-ok").addEventListener("click", () => {
+            overlay.remove();
+            resolve();
+        }, { once: true });
+    });
 }
 
 await(async () => {
@@ -103,12 +111,36 @@ await(async () => {
     const data = await res.json();
     localStorage.setItem("tempmail_address", data.address);
 
+    const username = data.address.split("@")[0];
+    if (LEGENDARY_ADDRESSES.includes(username)) {
+        await showLegendaryPopup();
+    }
+
     const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
     setTimeout(() => {
         emailText.innerHTML = data.address;
         startPolling(data.address);
     }, delay);
 })();
+
+async function decryptEmail(email) {
+    const b64ToArr = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const jwk = JSON.parse(localStorage.getItem("tempmail_privkey"));
+    const privateKey = await crypto.subtle.importKey("jwk", jwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+
+    async function decryptField(payload) {
+        const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, b64ToArr(payload.encryptedKey));
+        const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
+        const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToArr(payload.iv) }, aesKey, b64ToArr(payload.ciphertext));
+        return new TextDecoder().decode(plain);
+    }
+
+    const [subject, body, senderName, senderEmail] = await Promise.all([
+        decryptField(email.subject), decryptField(email.body),
+        decryptField(email.senderName), decryptField(email.senderEmail),
+    ]);
+    return { ...email, subject, body, senderName, senderEmail };
+}
 
 function startPolling(address) {
     if (activeStream) activeStream.close();
@@ -390,6 +422,11 @@ changeBtn.addEventListener("click", async () => {
 
     const data = await res.json();
     localStorage.setItem("tempmail_address", data.address);
+
+    const username = data.address.split("@")[0];
+    if (LEGENDARY_ADDRESSES.includes(username)) {
+        await showLegendaryPopup();
+    }
 
     const delay = Math.floor(Math.random() * (2500 - 800 + 1)) + 800;
     setTimeout(() => {

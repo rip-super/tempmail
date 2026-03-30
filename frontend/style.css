@@ -920,6 +920,76 @@ button {
     }
 }
 
+.legendary-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.legendary-popup {
+    background: var(--card-bg);
+    border: 1px solid #a07830;
+    border-radius: 12px;
+    padding: 28px 32px;
+    max-width: 450px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: popup-in 0.2s ease;
+}
+
+.legendary-popup p {
+    color: var(--text-bright);
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.legendary-label {
+    font-weight: 700;
+    background: linear-gradient(90deg,
+            #d4a017 0%,
+            #e0b020 15%,
+            #ffd700 30%,
+            #fffacd 50%,
+            #ffd700 70%,
+            #e0b020 85%,
+            #d4a017 100%);
+    background-size: 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gold-shine 5s linear infinite;
+}
+
+@keyframes gold-shine {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+.legendary-popup button {
+    align-self: center;
+    padding: 8px 28px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent-ink);
+    color: var(--text-bright);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
 @media (max-width: 660px) {
     .main-wrap {
         grid-template-columns: 1fr;
