@@ -19,9 +19,9 @@ A personal disposable email service running on [tempmail.sahildash.dev](https://
 
 | Layer | Tech |
 |---|---|
-| Backend | [Hono](https://hono.dev) on Node.js (TypeScript) |
-| Email ingestion | Cloudflare Email Workers + [PostalMime](https://github.com/postalsys/postalmime) |
-| Frontend | Vanilla HTML/CSS/JS, no framework |
+| Backend | [Hono](https://hono.dev) on Node.js (w/ TypeScript) |
+| Email ingestion | Cloudflare Email Workers + [PostalMime](https://www.npmjs.com/package/postal-mime) |
+| Frontend | Vanilla HTML/CSS/JS |
 
 ---
 
