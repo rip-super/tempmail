@@ -41,24 +41,6 @@ let retryDelay = 1000;
 let deletedIds = new Set();
 let renderedIds = new Set();
 
-function showLegendaryPopup() {
-    return new Promise(resolve => {
-        const overlay = document.createElement("div");
-        overlay.className = "legendary-popup-overlay";
-        overlay.innerHTML = `
-            <div class="legendary-popup">
-                <p>congrats! you rolled a <span class="legendary-label">legendary</span> email address.<br>(0.01% chance!) good job!</p>
-                <button id="legendary-ok">yay</button>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-        overlay.querySelector("#legendary-ok").addEventListener("click", () => {
-            overlay.remove();
-            resolve();
-        }, { once: true });
-    });
-}
-
 await(async () => {
     renderEmptyInbox();
 
@@ -123,6 +105,24 @@ await(async () => {
     }, delay);
 })();
 
+function showLegendaryPopup() {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.className = "legendary-popup-overlay";
+        overlay.innerHTML = `
+            <div class="legendary-popup">
+                <p>congrats! you rolled a <span class="legendary-label">legendary</span> email address.<br>(0.01% chance!) good job!</p>
+                <button id="legendary-ok">yay</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#legendary-ok").addEventListener("click", () => {
+            overlay.remove();
+            resolve();
+        }, { once: true });
+    });
+}
+
 async function decryptEmail(email) {
     const b64ToArr = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const jwk = JSON.parse(localStorage.getItem("tempmail_privkey"));
@@ -180,6 +180,14 @@ function formatDate(ts) {
     return `${date}<br>at ${time}`;
 }
 
+function esc(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 function renderEmptyInbox() {
     if (inboxBody.querySelector(".empty-state")) return;
 
@@ -233,11 +241,11 @@ function renderInbox() {
         <div class="sender-cell">
             <div class="unread-dot"></div>
             <div class="sender-info">
-                <div class="sender-name">${m.senderName}</div>
-                <div class="sender-email-small">${m.senderEmail}</div>
+                <div class="sender-name">${esc(m.senderName)}</div>
+                <div class="sender-email-small">${esc(m.senderEmail)}</div>
             </div>
         </div>
-        <div class="subject-cell">${m.subject}</div>
+        <div class="subject-cell">${esc(m.subject)}</div>
         <div class="arrow-cell">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="9 18 15 12 9 6"/>

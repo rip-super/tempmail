@@ -120,9 +120,15 @@ app.post("/inbox/:address/add", async c => {
 
     const { senderName, senderEmail, subject, body } = await c.req.json();
 
-    const pubKey = await crypto.subtle.importKey(
-        "jwk", sessions.get(address)!.publicKey, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]
-    );
+    let pubKey: CryptoKey;
+    try {
+        pubKey = await crypto.subtle.importKey(
+            "jwk", sessions.get(address)!.publicKey, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]
+        );
+    } catch {
+        console.error(`Failed to import public key for ${address}`);
+        return c.json({ error: "invalid key" }, 422);
+    }
 
     const email: Email = {
         id: randomUUID(),
