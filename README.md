@@ -6,12 +6,12 @@ A personal disposable email service running on [tempmail.sahildash.dev](https://
 
 ## Features
 
-- **Pre-generated address pool** — addresses are drawn from a pool of realistic-looking name combinations, not random strings
-- **Receive-only inboxes** — no sending, no accounts, no storage beyond the session
-- **Auto-expiry** — inboxes expire after 30 minutes of inactivity, address goes back to the pool
-- **Live inbox polling** — new emails show up without refreshing
-- **Rate limiting** — per-IP rolling rate limit on address allocation
-- **No database** — everything lives in memory; private by design
+- **Pre-generated address pool**: addresses are drawn from a pool of realistic-looking username combinations
+- **Receive-only inboxes**: no sending, no accounts, no storage beyond the session
+- **Auto-expiry**: inboxes expire after 30 minutes of inactivity, address goes back to the pool
+- **Live inbox polling**: new emails show up without refreshing
+- **Rate limiting**: per-IP rolling rate limit on address allocation
+- **No database**: everything lives in memory; private by design
 
 ---
 
