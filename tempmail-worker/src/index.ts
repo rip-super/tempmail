@@ -24,6 +24,7 @@ export default {
                 senderEmail: parsed.from?.address || message.from,
                 subject: parsed.subject ?? "(no subject)",
                 body: parsed.text ?? parsed.html ?? "",
+                bodyHtml: parsed.html ?? "",
             })
         });
 
