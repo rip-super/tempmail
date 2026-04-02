@@ -17,6 +17,7 @@ export type Email = {
     senderName: Payload,
     senderEmail: Payload,
     subject: Payload,
-    body: Payload,
+    textBody: Payload,
+    htmlBody: Payload,
     receivedAt: number,
 }

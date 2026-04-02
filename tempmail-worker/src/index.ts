@@ -6,11 +6,10 @@ interface Env {
 
 export default {
     async email(message: ForwardableEmailMessage, env: Env) {
-        const raw = await new Response(message.raw).arrayBuffer();
-        const parsed = await new PostalMime().parse(raw);
+        const parsed = await new PostalMime().parse(message.raw);
 
         const to = message.to;
-        const address = to.split("@")[0] + "@" + to.split("@")[1];
+        const address = `${to.split("@")[0]}@${to.split("@")[1]}`;
 
         const res = await fetch(`https://tempmail.sahildash.dev/inbox/${encodeURIComponent(address)}/add`, {
             method: "POST",
@@ -23,12 +22,13 @@ export default {
                 senderName: parsed.from?.name || parsed.from?.address || message.from,
                 senderEmail: parsed.from?.address || message.from,
                 subject: parsed.subject ?? "(no subject)",
-                body: parsed.text ?? parsed.html ?? "",
-            })
+                textBody: parsed.text ?? "",
+                htmlBody: parsed.html ?? parsed.text ?? "",
+            }),
         });
 
         if (!res.ok) {
             throw new Error(`Request failed: ${res.status}`);
         }
     }
-}
+};

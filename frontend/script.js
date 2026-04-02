@@ -129,17 +129,22 @@ async function decryptEmail(email) {
     const privateKey = await crypto.subtle.importKey("jwk", jwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
 
     async function decryptField(payload) {
+        if (!payload?.encryptedKey || !payload?.iv || !payload?.ciphertext) return "";
         const aesKeyRaw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, b64ToArr(payload.encryptedKey));
         const aesKey = await crypto.subtle.importKey("raw", aesKeyRaw, { name: "AES-GCM" }, false, ["decrypt"]);
         const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToArr(payload.iv) }, aesKey, b64ToArr(payload.ciphertext));
         return new TextDecoder().decode(plain);
     }
 
-    const [subject, body, senderName, senderEmail] = await Promise.all([
-        decryptField(email.subject), decryptField(email.body),
-        decryptField(email.senderName), decryptField(email.senderEmail),
+    const [subject, textBody, htmlBody, senderName, senderEmail] = await Promise.all([
+        decryptField(email.subject),
+        decryptField(email.textBody),
+        decryptField(email.htmlBody),
+        decryptField(email.senderName),
+        decryptField(email.senderEmail),
     ]);
-    return { ...email, subject, body, senderName, senderEmail };
+
+    return { ...email, subject, textBody, htmlBody, senderName, senderEmail };
 }
 
 function startPolling(address) {
@@ -274,9 +279,72 @@ function openEmail(id) {
     openSenderName.textContent = m.senderName;
     openSenderEmail.textContent = m.senderEmail;
     openSubject.textContent = m.subject;
-    openBody.textContent = m.body;
     avatarText.textContent = m.senderName.split(" ").map(p => p[0] ?? "").join("").slice(0, 2).toUpperCase();
     openDate.innerHTML = formatDate(m.receivedAt);
+
+    openBody.innerHTML = "";
+
+    if (m.htmlBody && m.htmlBody.trim()) {
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("sandbox", "allow-popups");
+        iframe.setAttribute("referrerpolicy", "no-referrer");
+        iframe.style.width = "100%";
+        iframe.style.border = "0";
+        iframe.style.minHeight = "300px";
+
+        const safeHtml = DOMPurify.sanitize(m.htmlBody, {
+            USE_PROFILES: { html: true },
+            FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
+            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+            ALLOW_DATA_ATTR: false,
+        });
+
+        iframe.srcdoc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta http-equiv="Content-Security-Policy" content="
+                    default-src 'none';
+                    img-src data: https:;
+                    style-src 'unsafe-inline';
+                    font-src data:;
+                ">
+                <style>
+                    html, body {
+                        margin: 0;
+                        padding: 0;
+                        background: #ffffff;
+                        color: #000000;
+                        font-family: system-ui, sans-serif;
+                        overflow-wrap: break-word;
+                        word-break: break-word;
+                    }
+                    img { max-width: 100%; height: auto; }
+                    table { max-width: 100%; }
+                    a { color: #1a73e8; }
+                </style>
+            </head>
+            <body>${safeHtml}</body>
+            </html>
+        `;
+
+        openBody.appendChild(iframe);
+
+        iframe.addEventListener("load", () => {
+            try {
+                const doc = iframe.contentDocument;
+                if (!doc) return;
+                const h = Math.max(
+                    doc.body?.scrollHeight || 0,
+                    doc.documentElement?.scrollHeight || 0
+                );
+                iframe.style.height = `${Math.max(h, 300)}px`;
+            } catch { }
+        });
+    } else {
+        openBody.textContent = m.textBody || "";
+    }
 
     inboxHead.classList.add("hidden");
     inboxBody.classList.add("hidden");
@@ -464,7 +532,7 @@ sourceBtn.addEventListener("click", () => {
     if (currentOpenId === null) return;
     const m = emails.find(e => e.id === currentOpenId);
     if (!m) return;
-    const eml = `From: ${m.senderName} <${m.senderEmail}>\nTo: ${emailText.textContent.trim()}\nSubject: ${m.subject}\nDate: ${m.date}\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\n\n${m.body}\n`;
+    const eml = `From: ${m.senderName} <${m.senderEmail}>\nTo: ${emailText.textContent.trim()}\nSubject: ${m.subject}\nDate: ${new Date(m.receivedAt).toUTCString()}\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\n\n${m.textBody || ""}\n`;
     const url = URL.createObjectURL(new Blob([eml], { type: "message/rfc822" }));
     const a = Object.assign(document.createElement("a"), {
         href: url,
