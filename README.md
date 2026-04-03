@@ -9,7 +9,7 @@ A personal disposable email service running on [tempmail.sahildash.dev](https://
 - **Pre-generated address pool**: addresses are drawn from a pool of realistic-looking username combinations
 - **Receive-only inboxes**: no sending, no accounts, no storage beyond the session
 - **Auto-expiry**: inboxes expire after 30 minutes of inactivity, address goes back to the pool
-- **Live inbox polling**: new emails show up without refreshing
+- **Live updates via SSE**: new emails appear instantly over a persistent server-sent event stream, no polling
 - **Rate limiting**: per-IP rolling rate limit on address allocation
 - **No database**: everything lives in memory; private by design
 
@@ -30,7 +30,7 @@ A personal disposable email service running on [tempmail.sahildash.dev](https://
 1. You land on the site and get assigned a temporary address from the pool (ex: `realgeorgewashingtonusa@sahildash.dev`)
 2. Any email sent to that address hits Cloudflare Email Routing, which forwards it to an Email Worker
 3. The worker parses the message with PostalMime and POSTs it to the backend ingest endpoint
-4. The frontend polls the backend every second and displays new messages as they arrive
+4. The frontend holds an open SSE connection to the backend; new messages are pushed and appear instantly
 5. After 30 minutes without activity, the session expires and the address is returned to the pool
 
 ---
