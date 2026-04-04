@@ -118,7 +118,7 @@ app.post("/inbox/:address/add", async c => {
     const address = c.req.param("address");
     if (!sessions.has(address)) return c.json({ error: "not found" }, 404);
 
-    const { senderName, senderEmail, subject, body, bodyHtml } = await c.req.json();
+    const { senderName, senderEmail, subject, textBody, htmlBody } = await c.req.json();
 
     let pubKey: CryptoKey;
     try {
@@ -135,8 +135,8 @@ app.post("/inbox/:address/add", async c => {
         senderName: await encryptField(senderName ?? "", pubKey),
         senderEmail: await encryptField(senderEmail ?? "", pubKey),
         subject: await encryptField(subject ?? "(no subject)", pubKey),
-        body: await encryptField(body ?? "", pubKey),
-        bodyHtml: await encryptField(bodyHtml ?? "", pubKey),
+        textBody: await encryptField(textBody ?? "", pubKey),
+        htmlBody: await encryptField(htmlBody ?? "", pubKey),
         receivedAt: Date.now(),
     };
 
