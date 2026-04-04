@@ -10,6 +10,7 @@ const mailView = document.getElementById("mailView");
 const backBtn = document.getElementById("backBtn");
 const deleteMailBtn = document.getElementById("deleteMailBtn");
 const sourceBtn = document.getElementById("sourceBtn");
+const htmlToggleBtn = document.getElementById("htmlToggleBtn");
 const openSenderName = document.getElementById("openSenderName");
 const openSenderEmail = document.getElementById("openSenderEmail");
 const openDate = document.getElementById("openDate");
@@ -18,6 +19,7 @@ const openBody = document.getElementById("openBody");
 const avatarText = document.getElementById("avatarText");
 const copyFeedback = document.getElementById("copyFeedback");
 const overlay = document.getElementById("rateLimitOverlay");
+const expiryBar = document.getElementById("expiryBar");
 
 const LEGENDARY_ADDRESSES = [
     "realgeorgewashingtonusa",
@@ -40,6 +42,9 @@ let retryTimeout = null;
 let retryDelay = 1000;
 let deletedIds = new Set();
 let renderedIds = new Set();
+let currentViewMode = "plain";
+let lastActivityLocal = Date.now();
+let expiryInterval = null;
 
 await(async () => {
     renderEmptyInbox();
@@ -59,6 +64,7 @@ await(async () => {
             setTimeout(() => {
                 emailText.innerHTML = stored;
                 startPolling(stored);
+                startExpiryCountdown();
             }, delay);
             return;
         }
@@ -102,6 +108,7 @@ await(async () => {
     setTimeout(() => {
         emailText.innerHTML = data.address;
         startPolling(data.address);
+        startExpiryCountdown();
     }, delay);
 })();
 
@@ -167,7 +174,19 @@ function startPolling(address) {
         const raw = JSON.parse(e.data);
         const decrypted = await decryptEmail(raw);
         emails.push(decrypted);
+        lastActivityLocal = Date.now();
         renderInbox();
+
+        if ("Notification" in window) {
+            if (Notification.permission === "default") {
+                const result = await Notification.requestPermission();
+                if (result === "granted" && document.visibilityState !== "visible") {
+                    new Notification(`New email — ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
+                }
+            } else if (Notification.permission === "granted" && document.visibilityState !== "visible") {
+                new Notification(`New email — ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
+            }
+        }
     });
 
     es.addEventListener("error", () => {
@@ -211,6 +230,10 @@ function renderEmptyInbox() {
 
 function renderInbox() {
     const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt)).reverse();
+
+    document.title = visible.length > 0
+        ? `(${visible.length}) tempmail - private and secure temporary email`
+        : "tempmail - private and secure temporary email";
 
     if (!visible.length) {
         const rows = inboxBody.querySelectorAll(".mail-row");
@@ -283,68 +306,18 @@ function openEmail(id) {
     openDate.innerHTML = formatDate(m.receivedAt);
 
     openBody.innerHTML = "";
+    currentViewMode = m.htmlBody && m.htmlBody.trim() ? "html" : "plain";
 
     if (m.htmlBody && m.htmlBody.trim()) {
-        const iframe = document.createElement("iframe");
-        iframe.setAttribute("sandbox", "allow-popups");
-        iframe.setAttribute("referrerpolicy", "no-referrer");
-        iframe.style.width = "100%";
-        iframe.style.border = "0";
-        iframe.style.minHeight = "300px";
-
-        const safeHtml = DOMPurify.sanitize(m.htmlBody, {
-            USE_PROFILES: { html: true },
-            FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
-            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
-            ALLOW_DATA_ATTR: false,
-        });
-
-        iframe.srcdoc = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <meta http-equiv="Content-Security-Policy" content="
-                    default-src 'none';
-                    img-src data: https:;
-                    style-src 'unsafe-inline';
-                    font-src data:;
-                ">
-                <style>
-                    html, body {
-                        margin: 0;
-                        padding: 0;
-                        background: #ffffff;
-                        color: #000000;
-                        font-family: system-ui, sans-serif;
-                        overflow-wrap: break-word;
-                        word-break: break-word;
-                    }
-                    img { max-width: 100%; height: auto; }
-                    table { max-width: 100%; }
-                    a { color: #1a73e8; }
-                </style>
-            </head>
-            <body>${safeHtml}</body>
-            </html>
-        `;
-
-        openBody.appendChild(iframe);
-
-        iframe.addEventListener("load", () => {
-            try {
-                const doc = iframe.contentDocument;
-                if (!doc) return;
-                const h = Math.max(
-                    doc.body?.scrollHeight || 0,
-                    doc.documentElement?.scrollHeight || 0
-                );
-                iframe.style.height = `${Math.max(h, 300)}px`;
-            } catch { }
-        });
+        htmlToggleBtn.classList.remove("hidden");
     } else {
-        openBody.textContent = m.textBody || "";
+        htmlToggleBtn.classList.add("hidden");
     }
+
+    htmlToggleBtn.textContent = currentViewMode === "html" ? "Plain" : "HTML";
+    htmlToggleBtn.classList.toggle("active", currentViewMode === "html");
+
+    updateBodyView();
 
     inboxHead.classList.add("hidden");
     inboxBody.classList.add("hidden");
@@ -368,6 +341,82 @@ function closeEmail() {
             inboxBody.classList.remove("returning");
         }, { once: true });
     }, { once: true });
+}
+
+function updateBodyView() {
+    const m = emails.find(e => e.id === currentOpenId);
+    if (!m) return;
+
+    openBody.innerHTML = "";
+
+    if (currentViewMode === "html" && m.htmlBody) {
+        openBody.classList.add("html-mode");
+
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("sandbox", "allow-popups");
+        iframe.setAttribute("referrerpolicy", "no-referrer");
+        iframe.style.width = "100%";
+        iframe.style.border = "0";
+        iframe.style.minHeight = "300px";
+
+        const safeHtml = DOMPurify.sanitize(m.htmlBody, {
+            USE_PROFILES: { html: true },
+            FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
+            FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+            ALLOW_DATA_ATTR: false,
+        });
+
+        iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; font-src data:;">
+            <style>html,body{margin:0;padding:0;background:#ffffff;color:#000000;font-family:system-ui,sans-serif;overflow-wrap:break-word;word-break:break-word;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#1a73e8;}</style>
+            </head><body>${safeHtml}</body></html>`;
+
+        openBody.appendChild(iframe);
+
+        iframe.addEventListener("load", () => {
+            try {
+                const doc = iframe.contentDocument;
+                if (!doc) return;
+                const h = Math.max(doc.body?.scrollHeight || 0, doc.documentElement?.scrollHeight || 0);
+                iframe.style.height = `${Math.max(h, 300)}px`;
+            } catch { }
+        });
+
+        htmlToggleBtn.classList.add("active");
+        htmlToggleBtn.textContent = "Plain";
+    } else {
+        currentViewMode = "plain";
+        openBody.classList.remove("html-mode");
+        openBody.textContent = m.textBody || "";
+        htmlToggleBtn.classList.remove("active");
+        htmlToggleBtn.textContent = "HTML";
+    }
+}
+
+htmlToggleBtn.addEventListener("click", () => {
+    currentViewMode = currentViewMode === "plain" ? "html" : "plain";
+    updateBodyView();
+});
+
+function startExpiryCountdown() {
+    expiryBar.classList.remove("hidden");
+    expiryBar.classList.remove("expired");
+    if (expiryInterval) clearInterval(expiryInterval);
+
+    expiryInterval = setInterval(() => {
+        const remaining = Math.max(0, 30 * 60 * 1000 - (Date.now() - lastActivityLocal));
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        const timerEl = document.getElementById("expiryTimer");
+
+        if (remaining === 0) {
+            timerEl.textContent = "Session expired";
+            expiryBar.classList.add("expired");
+            clearInterval(expiryInterval);
+        } else {
+            timerEl.textContent = `Expires in ${mins}:${secs.toString().padStart(2, "0")}`;
+        }
+    }, 1000);
 }
 
 function deleteCurrentEmail() {
@@ -513,8 +562,10 @@ changeBtn.addEventListener("click", async () => {
         clearedAt = null;
         deletedIds = new Set();
         renderedIds = new Set();
+        lastActivityLocal = Date.now();
 
         startPolling(data.address);
+        startExpiryCountdown();
     }, delay);
 });
 

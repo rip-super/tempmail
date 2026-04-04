@@ -990,6 +990,51 @@ button {
     cursor: pointer;
 }
 
+.expiry-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+.expiry-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-success);
+    flex-shrink: 0;
+}
+
+.expiry-bar.expired .expiry-dot {
+    background: var(--danger);
+}
+
+.expiry-bar.expired #expiryTimer {
+    color: var(--danger);
+}
+
+.mail-topbar-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+.mail-body.html-mode {
+    padding: 0;
+    white-space: normal;
+}
+
+.mail-body-iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 350px;
+    border: none;
+    display: block;
+}
+
 @media (max-width: 660px) {
     .main-wrap {
         grid-template-columns: 1fr;
