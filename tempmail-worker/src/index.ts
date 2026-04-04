@@ -11,6 +11,9 @@ export default {
         const to = message.to;
         const address = `${to.split("@")[0]}@${to.split("@")[1]}`;
 
+        const plainText = (parsed.text ?? "").replace(/\s+/g, " ").trim();
+        const htmlAsPlain = parsed.html ? parsed.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim() : "";
+
         const res = await fetch(`https://tempmail.sahildash.dev/inbox/${encodeURIComponent(address)}/add`, {
             method: "POST",
             headers: {
@@ -23,7 +26,7 @@ export default {
                 senderEmail: parsed.from?.address || message.from,
                 subject: parsed.subject ?? "(no subject)",
                 textBody: parsed.text ?? "",
-                htmlBody: parsed.html ?? parsed.text ?? "",
+                htmlBody: parsed.html && htmlAsPlain !== plainText ? parsed.html : "",
             }),
         });
 

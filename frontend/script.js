@@ -42,6 +42,7 @@ let retryTimeout = null;
 let retryDelay = 1000;
 let deletedIds = new Set();
 let renderedIds = new Set();
+let readIds = new Set();
 let currentViewMode = "plain";
 let lastActivityLocal = Date.now();
 let expiryInterval = null;
@@ -52,6 +53,8 @@ await(async () => {
     const stored = localStorage.getItem("tempmail_address");
     const storedCleared = localStorage.getItem("tempmail_cleared");
     if (storedCleared) clearedAt = parseInt(storedCleared);
+
+    readIds = new Set(JSON.parse(localStorage.getItem("tempmail_read") ?? "[]"));
 
     const storedAddress = localStorage.getItem("tempmail_address");
     const storedKey = localStorage.getItem("tempmail_privkey");
@@ -181,10 +184,10 @@ function startPolling(address) {
             if (Notification.permission === "default") {
                 const result = await Notification.requestPermission();
                 if (result === "granted" && document.visibilityState !== "visible") {
-                    new Notification(`New email — ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
+                    new Notification(`New email - ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
                 }
             } else if (Notification.permission === "granted" && document.visibilityState !== "visible") {
-                new Notification(`New email — ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
+                new Notification(`New email - ${decrypted.senderName}`, { body: decrypted.subject, icon: "/favicon.ico" });
             }
         }
     });
@@ -231,8 +234,9 @@ function renderEmptyInbox() {
 function renderInbox() {
     const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt)).reverse();
 
-    document.title = visible.length > 0
-        ? `(${visible.length}) tempmail - private and secure temporary email`
+    const unreadCount = visible.filter(m => !readIds.has(m.id)).length;
+    document.title = unreadCount > 0
+        ? `(${unreadCount}) tempmail - private and secure temporary email`
         : "tempmail - private and secure temporary email";
 
     if (!visible.length) {
@@ -267,7 +271,7 @@ function renderInbox() {
         row.dataset.id = m.id;
         row.innerHTML = `
         <div class="sender-cell">
-            <div class="unread-dot"></div>
+            <div class="unread-dot" style="${readIds.has(m.id) ? 'visibility:hidden' : ''}"></div>
             <div class="sender-info">
                 <div class="sender-name">${esc(m.senderName)}</div>
                 <div class="sender-email-small">${esc(m.senderEmail)}</div>
@@ -299,6 +303,18 @@ function openEmail(id) {
     if (!m) return;
 
     currentOpenId = id;
+    readIds.add(id);
+    localStorage.setItem("tempmail_read", JSON.stringify([...readIds]));
+
+    const row = inboxBody.querySelector(`.mail-row[data-id="${id}"]`);
+    if (row) row.querySelector(".unread-dot").style.visibility = "hidden";
+
+    const visible = emails.filter(m => !deletedIds.has(m.id) && (!clearedAt || m.receivedAt > clearedAt));
+    const unreadCount = visible.filter(m => !readIds.has(m.id)).length;
+    document.title = unreadCount > 0
+        ? `(${unreadCount}) tempmail - private and secure temporary email`
+        : "tempmail - private and secure temporary email";
+
     openSenderName.textContent = m.senderName;
     openSenderEmail.textContent = m.senderEmail;
     openSubject.textContent = m.subject;
@@ -306,9 +322,11 @@ function openEmail(id) {
     openDate.innerHTML = formatDate(m.receivedAt);
 
     openBody.innerHTML = "";
-    currentViewMode = m.htmlBody && m.htmlBody.trim() ? "html" : "plain";
 
-    if (m.htmlBody && m.htmlBody.trim()) {
+    const hasHtml = m.htmlBody && m.htmlBody.trim() && /<(?:div|table|td|tr|img|span|style|font|h[1-6][\s>]|p[\s>])[^>]*>/i.test(m.htmlBody);
+    currentViewMode = hasHtml ? "html" : "plain";
+
+    if (hasHtml) {
         htmlToggleBtn.classList.remove("hidden");
     } else {
         htmlToggleBtn.classList.add("hidden");
@@ -356,7 +374,9 @@ function updateBodyView() {
         iframe.setAttribute("sandbox", "allow-popups");
         iframe.setAttribute("referrerpolicy", "no-referrer");
         iframe.style.width = "100%";
+        iframe.style.height = "100%";
         iframe.style.border = "0";
+        iframe.style.display = "block";
         iframe.style.minHeight = "300px";
 
         const safeHtml = DOMPurify.sanitize(m.htmlBody, {
@@ -372,15 +392,6 @@ function updateBodyView() {
             </head><body>${safeHtml}</body></html>`;
 
         openBody.appendChild(iframe);
-
-        iframe.addEventListener("load", () => {
-            try {
-                const doc = iframe.contentDocument;
-                if (!doc) return;
-                const h = Math.max(doc.body?.scrollHeight || 0, doc.documentElement?.scrollHeight || 0);
-                iframe.style.height = `${Math.max(h, 300)}px`;
-            } catch { }
-        });
 
         htmlToggleBtn.classList.add("active");
         htmlToggleBtn.textContent = "Plain";
@@ -558,10 +569,12 @@ changeBtn.addEventListener("click", async () => {
         emailText.innerHTML = data.address;
 
         localStorage.removeItem("tempmail_cleared");
+        localStorage.removeItem("tempmail_read");
 
         clearedAt = null;
         deletedIds = new Set();
         renderedIds = new Set();
+        readIds = new Set();
         lastActivityLocal = Date.now();
 
         startPolling(data.address);

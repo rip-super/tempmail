@@ -414,6 +414,11 @@ button {
     flex-shrink: 0;
 }
 
+.unread-dot.read {
+    background: transparent;
+    border: 1.5px solid var(--line-bright);
+}
+
 .sender-info {
     min-width: 0;
 }
@@ -727,11 +732,13 @@ button {
     padding: 26px;
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    max-height: 100%;
+    overflow-y: auto;
     font-size: 0.92rem;
     color: var(--text-mid);
     line-height: 1.75;
     white-space: pre-wrap;
+    contain: strict;
 }
 
 .shimmer {
